@@ -387,20 +387,21 @@
       }
       function fmtDist(m) { return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`; }
       async function searchStation() {
-        const distance = Number($('distance').value) * 1000;
+        const distance = Number($('distance').value);
         if (!current) { say('先に「現在地を取得」を押してください。', true); return; }
         if (headingDeg === null) { say('先に「方位を取得」を押してください。', true); return; }
         if (!Number.isFinite(distance) || distance <= 0 || distance > 1000) { say('距離は1〜1,000キロメートルで入力してください。', true); return; }
+        let distanceMater = distance * 1000;
         $('searchBtn').disabled = true; $('searchBtn').textContent = '検索中…'; $('resultPanel').classList.add('hidden');
         try {
-          destination = destinationPoint(current.lat, current.lon, headingDeg, distance);
+          destination = destinationPoint(current.lat, current.lon, headingDeg, distanceMater);
           initMap(current.lat, current.lon);
           if (destinationMarker) destinationMarker.remove();
           if (stationMarker) stationMarker.remove();
           if (line) line.remove();
           destinationMarker = L.marker([destination.lat, destination.lon]).addTo(map).bindPopup('指定距離先');
           line = L.polyline([[current.lat, current.lon], [destination.lat, destination.lon]], { color: '#dc2626', dashArray: '6 7' }).addTo(map);
-          $('destinationText').textContent = `到着予測地点：${destination.lat.toFixed(6)}, ${destination.lon.toFixed(6)}（方位 ${Math.round(headingDeg)}°・${fmtDist(distance)}）`;
+          $('destinationText').textContent = `到着予測地点：${destination.lat.toFixed(6)}, ${destination.lon.toFixed(6)}（方位 ${Math.round(headingDeg)}°・${fmtDist(distanceMater)}）`;
           say('到着地点を計算しました。周辺の駅を検索しています…');
           // Query nearby railway stations/stops; search within 5 km then calculate exact straight-line distance.
           const query = `[out:json][timeout:25];(node(around:5000,${destination.lat},${destination.lon})[railway~"^(station|halt|tram_stop)$"];way(around:5000,${destination.lat},${destination.lon})[railway~"^(station|halt|tram_stop)$"];relation(around:5000,${destination.lat},${destination.lon})[railway~"^(station|halt|tram_stop)$"];node(around:5000,${destination.lat},${destination.lon})[public_transport=station];);out center tags;`;
@@ -414,7 +415,7 @@
             const tags = el.tags || {};
             const name = tags['name:ja'] || tags.name || tags['name:en'] || '名称不明の駅';
             if (candidates.some(c => c.name === name && haversine(c, { lat, lon }) < 35)) continue;
-            candidates.push({ name, lat, lon, distance: haversine(destination, { lat, lon }), tags });
+            candidates.push({ name, lat, lon, distanceMater: haversine(destination, { lat, lon }), tags });
           }
           candidates.sort((a, b) => a.distance - b.distance);
           if (!candidates.length) {
